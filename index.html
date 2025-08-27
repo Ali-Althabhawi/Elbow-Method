@@ -5,23 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>K-Means Clustering & Elbow Plot Demo</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
-    .container { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 32px; }
-    h1 { text-align: center; margin-bottom: 24px; }
-    canvas { display: block; margin: 0 auto 32px auto; background: #fafafa; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
-    .label { text-align: center; font-size: 1.1em; margin-bottom: 8px; }
+    body {
+      font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      margin: 0; padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: rgba(255,255,255,0.95);
+      border-radius: 18px;
+      box-shadow: 0 8px 32px rgba(30,60,114,0.18);
+      padding: 40px 32px 32px 32px;
+      backdrop-filter: blur(2px);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 12px;
+      font-size: 2.5em;
+      font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+      letter-spacing: 2px;
+      color: #1e3c72;
+      text-shadow: 0 2px 8px #2a529822;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 1.2em;
+      color: #2a5298;
+      margin-bottom: 28px;
+      font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto 32px auto;
+      background: linear-gradient(120deg, #f8fafc 60%, #e3eafc 100%);
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(30,60,114,0.10);
+      transition: box-shadow 0.3s;
+    }
+    canvas:focus, canvas:active {
+      box-shadow: 0 4px 24px #2a5298aa;
+    }
+    .label {
+      text-align: center;
+      font-size: 1.15em;
+      margin-bottom: 8px;
+      color: #1e3c72;
+      font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>K-Means Clustering & Elbow Plot</h1>
-    <form id="controls" style="text-align:center; margin-bottom:18px;">
-    <!-- User controls removed -->
-    </form>
-    <div class="label">K-Means Cluster Visualization</div>
-    <canvas id="clusterCanvas" width="800" height="400"></canvas>
-    <div class="label">Elbow Plot (Click a point to highlight cluster)</div>
-    <canvas id="elbowCanvas" width="800" height="250"></canvas>
+  <div class="container" style="display: flex; gap: 32px;">
+    <div style="flex: 1;">
+      <h1>K-Means Clustering & Elbow Plot</h1>
+      <div class="subtitle">Interactive Demo: Visualize K-Means Clusters & Find the Elbow</div>
+      <form id="controls" style="text-align:center; margin-bottom:18px;">
+      <!-- User controls removed -->
+      </form>
+      <div class="label">K-Means Cluster Visualization</div>
+      <canvas id="clusterCanvas" width="800" height="400"></canvas>
+      <div class="label">Elbow Plot (Click a point to highlight cluster)</div>
+      <canvas id="elbowCanvas" width="800" height="250"></canvas>
+    </div>
+    <div class="sidebar-formula" style="flex: 0 0 320px; background: rgba(255,255,255,0.97); border-radius: 16px; box-shadow: 0 2px 16px #2a529822; margin-top: 12px; padding: 28px 18px 18px 18px; display: flex; flex-direction: column; align-items: center;">
+      <h2 style="font-family: 'Montserrat', Arial, sans-serif; color: #1e3c72; font-size: 1.3em; margin-bottom: 18px;">Key Formulas</h2>
+      <div style="margin-bottom: 22px; text-align: center;">
+        <span style="font-size: 1.1em; color: #2a5298; font-weight: bold;">K-Means Objective:</span><br>
+        <span style="font-size: 1.5em; color: #222; font-family: 'Segoe UI', Arial, sans-serif;">
+          <span style="font-family: 'Times New Roman', serif;">minimize</span> &nbsp; <b>∑<sub>i=1</sub><sup>k</sup> ∑<sub>x∈C<sub>i</sub></sub> ||x - μ<sub>i</sub>||²</b>
+        </span>
+        <br>
+        <span style="font-size: 0.95em; color: #555;">(Sum of squared distances from each point to its cluster centroid)</span>
+      </div>
+      <div style="margin-bottom: 10px; text-align: center;">
+        <span style="font-size: 1.1em; color: #2a5298; font-weight: bold;">Inertia (Elbow Plot):</span><br>
+        <span style="font-size: 1.5em; color: #222; font-family: 'Segoe UI', Arial, sans-serif;">
+          <b>Inertia = (1/k) &nbsp; ∑<sub>i=1</sub><sup>k</sup> ∑<sub>x∈C<sub>i</sub></sub> ||x - μ<sub>i</sub>||²</b>
+        </span>
+        <br>
+        <span style="font-size: 0.95em; color: #555;">(Average squared distance for all clusters)</span>
+      </div>
+    </div>
   </div>
   <script>
     // --- Utility Functions ---
@@ -123,7 +188,10 @@
         ctx.beginPath();
         ctx.moveTo(points[i][0], points[i][1]);
         ctx.lineTo(centroids[cIdx][0], centroids[cIdx][1]);
+        ctx.shadowColor = (highlightIdx!==null && cIdx===highlightIdx) ? clusterColors[cIdx] : "#222";
+        ctx.shadowBlur = (highlightIdx!==null && cIdx===highlightIdx) ? 12 : 0;
         ctx.stroke();
+        ctx.shadowBlur = 0;
       }
       // Draw points
       for (let i=0; i<points.length; ++i) {
@@ -132,7 +200,10 @@
         ctx.globalAlpha = (highlightIdx===null) ? 0.85 : (cIdx===highlightIdx ? 1.0 : 0.25);
         ctx.beginPath();
         ctx.arc(points[i][0], points[i][1], 7, 0, 2*Math.PI);
+        ctx.shadowColor = (highlightIdx!==null && cIdx===highlightIdx) ? clusterColors[cIdx] : "#222";
+        ctx.shadowBlur = (highlightIdx!==null && cIdx===highlightIdx) ? 16 : 0;
         ctx.fill();
+        ctx.shadowBlur = 0;
         // Add border for visibility
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
@@ -145,7 +216,10 @@
         ctx.globalAlpha = (highlightIdx===null) ? 1.0 : (j===highlightIdx ? 1.0 : 0.25);
         ctx.beginPath();
         ctx.arc(centroids[j][0], centroids[j][1], 14, 0, 2*Math.PI);
+        ctx.shadowColor = (highlightIdx!==null && j===highlightIdx) ? clusterColors[j] : "#222";
+        ctx.shadowBlur = (highlightIdx!==null && j===highlightIdx) ? 24 : 0;
         ctx.fill();
+        ctx.shadowBlur = 0;
         ctx.strokeStyle = "#222";
         ctx.lineWidth = 3;
         ctx.stroke();
@@ -181,17 +255,20 @@
         let x = 60 + (i)*(700/(elbowData.length-1));
         let y = 200 - (elbowData[i].inertia-elbowData[elbowData.length-1].inertia)/(elbowData[0].inertia-elbowData[elbowData.length-1].inertia+1e-6)*160;
         ctx.beginPath();
-        ctx.arc(x, y, (i+1)==selectedIdx ? 12 : 8, 0, 2*Math.PI);
-        ctx.fillStyle = (i+1)==selectedIdx ? "#e74c3c" : "#bbb";
-        ctx.globalAlpha = (i+1)==selectedIdx ? 1.0 : 0.5;
+        ctx.arc(x, y, (selectedIdx!==null && i===selectedIdx) ? 14 : 9, 0, 2*Math.PI);
+        ctx.fillStyle = (selectedIdx!==null && i===selectedIdx) ? "#e74c3c" : "#2980b9";
+        ctx.globalAlpha = (selectedIdx!==null && i===selectedIdx) ? 1.0 : 0.7;
+        ctx.shadowColor = (selectedIdx!==null && i===selectedIdx) ? "#e74c3c" : "#2980b9";
+        ctx.shadowBlur = (selectedIdx!==null && i===selectedIdx) ? 18 : 0;
         ctx.fill();
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1.0;
         ctx.strokeStyle = "#fff";
-        ctx.lineWidth = (i+1)==selectedIdx ? 3 : 1;
+        ctx.lineWidth = (selectedIdx!==null && i===selectedIdx) ? 4 : 1;
         ctx.stroke();
         ctx.lineWidth = 1;
         // Label
-        ctx.fillStyle = (i+1)==selectedIdx ? "#222" : "#888";
+        ctx.fillStyle = (selectedIdx!==null && i===selectedIdx) ? "#222" : "#888";
         ctx.font = "bold 16px Arial";
         ctx.textAlign = "center";
         ctx.fillText(i+1, x, y-18);
@@ -216,9 +293,9 @@
     const clusterCtx = clusterCanvas.getContext('2d');
     const elbowCtx = elbowCanvas.getContext('2d');
     function render(selectedK, highlightIdx=null) {
-      let idx = selectedK-1;
-      drawClusters(clusterCtx, points, elbowData[idx].centroids, elbowData[idx].clusters, highlightIdx);
-      drawElbow(elbowCtx, elbowData.slice(0, selectedK), selectedK);
+  let idx = selectedK-1;
+  drawClusters(clusterCtx, points, elbowData[idx].centroids, elbowData[idx].clusters, highlightIdx);
+  drawElbow(elbowCtx, elbowData, highlightIdx);
     }
     render(selectedK);
   // Removed controls for user input
@@ -227,34 +304,22 @@
       const rect = elbowCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      for (let i=0; i<selectedK; ++i) {
-        let px = 60 + (i)*(700/(selectedK-1));
-        let py = 200 - (elbowData[i].inertia-elbowData[selectedK-1].inertia)/(elbowData[0].inertia-elbowData[selectedK-1].inertia+1e-6)*160;
+      for (let i=0; i<elbowData.length; ++i) {
+        let px = 60 + (i)*(700/(elbowData.length-1));
+        let py = 200 - (elbowData[i].inertia-elbowData[elbowData.length-1].inertia)/(elbowData[0].inertia-elbowData[elbowData.length-1].inertia+1e-6)*160;
         if ((x-px)**2 + (y-py)**2 < 14*14) {
-          selectedK = i+1;
-          render(selectedK, i);
+          render(i+1, null);
           break;
         }
       }
     });
     // Highlight cluster on elbow plot hover
     elbowCanvas.addEventListener('mousemove', function(e) {
-      const rect = elbowCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      let found = null;
-      for (let i=0; i<elbowData.length; ++i) {
-        let px = 60 + (i)*(700/(elbowData.length-1));
-        let py = 200 - (elbowData[i].inertia-elbowData[elbowData.length-1].inertia)/(elbowData[0].inertia-elbowData[elbowData.length-1].inertia+1e-6)*160;
-        if ((x-px)**2 + (y-py)**2 < 14*14) {
-          found = i+1;
-          break;
-        }
-      }
-      render(selectedK, found ? found-1 : null);
+  // No highlight on hover; keep selected cluster until another is clicked
+  // Do nothing on mousemove
     });
     elbowCanvas.addEventListener('mouseleave', function() {
-      render(selectedK);
+  // Do nothing on mouseleave; keep selected cluster until another is clicked
     });
   </script>
 </html>
