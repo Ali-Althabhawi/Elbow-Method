@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K-Means Clustering & Elbow Plot Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
+    .container { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 32px; }
+    h1 { text-align: center; margin-bottom: 24px; }
+    canvas { display: block; margin: 0 auto 32px auto; background: #fafafa; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
+    .label { text-align: center; font-size: 1.1em; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>K-Means Clustering & Elbow Plot</h1>
+    <form id="controls" style="text-align:center; margin-bottom:18px;">
+    <!-- User controls removed -->
+    </form>
+    <div class="label">K-Means Cluster Visualization</div>
+    <canvas id="clusterCanvas" width="800" height="400"></canvas>
+    <div class="label">Elbow Plot (Click a point to highlight cluster)</div>
+    <canvas id="elbowCanvas" width="800" height="250"></canvas>
+  </div>
+  <script>
+    // --- Utility Functions ---
+    function randomPoints(n, w, h) {
+      // Keep points inside axes area (padding: left=60, right=20, top=40, bottom=40)
+      return Array.from({length: n}, () => [
+        Math.random() * (w - 80) + 60,
+        Math.random() * (h - 80) + 40
+      ]);
+    }
+    function dist(a, b) {
+      return Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2);
+    }
+    function mean(arr) {
+      return arr.reduce((a,b) => a+b, 0) / arr.length;
+    }
+    // --- K-Means Implementation ---
+    function kmeans(points, k, maxIter=50) {
+      let centroids = points.slice(0, k).map(p => [...p]);
+      let clusters = Array(points.length).fill(0);
+      for (let iter=0; iter<maxIter; ++iter) {
+        // Assign clusters
+        for (let i=0; i<points.length; ++i) {
+          let dists = centroids.map(c => dist(points[i], c));
+          clusters[i] = dists.indexOf(Math.min(...dists));
+        }
+        // Update centroids
+        for (let j=0; j<k; ++j) {
+          let members = points.filter((_,i) => clusters[i]===j);
+          if (members.length) {
+            centroids[j] = [
+              mean(members.map(p=>p[0])),
+              mean(members.map(p=>p[1]))
+            ];
+          }
+        }
+      }
+      return {centroids, clusters};
+    }
+    function inertia(points, centroids, clusters) {
+      let sum = 0;
+      for (let i=0; i<points.length; ++i) {
+        sum += dist(points[i], centroids[clusters[i]])**2;
+      }
+      return sum / centroids.length;
+    }
+    // --- Main Data Generation ---
+    // Randomize points and centroids on each load
+    let N = Math.floor(Math.random() * 151) + 50; // 50-200
+    let MAX_K = 8;
+    const clusterColors = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#34495e"];
+    let selectedK = Math.floor(Math.random() * 4) + 5; // 5-8
+    let points = randomPoints(N, 800, 400);
+    let elbowData = [];
+    function computeElbow() {
+      elbowData = [];
+      for (let k=1; k<=MAX_K; ++k) {
+        let {centroids, clusters} = kmeans(points, k);
+        let inertiaVal = inertia(points, centroids, clusters);
+        elbowData.push({k, inertia: inertiaVal, centroids, clusters});
+      }
+    }
+    computeElbow();
+    // --- Drawing Functions ---
+    function drawClusters(ctx, points, centroids, clusters, highlightIdx=null) {
+      ctx.clearRect(0,0,800,400);
+      // Draw grid
+      ctx.save();
+      ctx.strokeStyle = '#e0e0e0';
+      for (let x = 60; x <= 780; x += 60) {
+        ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, 360); ctx.stroke();
+      }
+      for (let y = 40; y <= 360; y += 40) {
+        ctx.beginPath(); ctx.moveTo(60, y); ctx.lineTo(780, y); ctx.stroke();
+      }
+      ctx.restore();
+  // Draw axes (Y left, X bottom)
+  ctx.save();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(60, 360); ctx.lineTo(60, 40); ctx.moveTo(60, 360); ctx.lineTo(780, 360); ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.restore();
+  // Axis labels
+  ctx.save();
+  ctx.font = '16px Arial';
+  ctx.fillStyle = '#333';
+  ctx.textAlign = 'center';
+  ctx.fillText('X', 780, 380);
+  ctx.textAlign = 'right';
+  ctx.fillText('Y', 50, 40);
+  ctx.restore();
+      // Draw lines from points to centroids
+      for (let i=0; i<points.length; ++i) {
+        let cIdx = clusters[i];
+        ctx.strokeStyle = clusterColors[cIdx];
+        ctx.globalAlpha = (highlightIdx===null) ? 0.25 : (cIdx===highlightIdx ? 0.7 : 0.12);
+        ctx.beginPath();
+        ctx.moveTo(points[i][0], points[i][1]);
+        ctx.lineTo(centroids[cIdx][0], centroids[cIdx][1]);
+        ctx.stroke();
+      }
+      // Draw points
+      for (let i=0; i<points.length; ++i) {
+        let cIdx = clusters[i];
+        ctx.fillStyle = clusterColors[cIdx];
+        ctx.globalAlpha = (highlightIdx===null) ? 0.85 : (cIdx===highlightIdx ? 1.0 : 0.25);
+        ctx.beginPath();
+        ctx.arc(points[i][0], points[i][1], 7, 0, 2*Math.PI);
+        ctx.fill();
+        // Add border for visibility
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+      // Draw centroids
+      for (let j=0; j<centroids.length; ++j) {
+        ctx.fillStyle = clusterColors[j];
+        ctx.globalAlpha = (highlightIdx===null) ? 1.0 : (j===highlightIdx ? 1.0 : 0.25);
+        ctx.beginPath();
+        ctx.arc(centroids[j][0], centroids[j][1], 14, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = "#222";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        // Draw centroid label
+        ctx.font = 'bold 15px Arial';
+        ctx.fillStyle = (highlightIdx===null || j===highlightIdx) ? '#222' : '#888';
+        ctx.textAlign = 'center';
+        ctx.fillText('C'+(j+1), centroids[j][0], centroids[j][1]-18);
+      }
+      ctx.globalAlpha = 1.0;
+    }
+    function drawElbow(ctx, elbowData, selectedIdx) {
+      ctx.clearRect(0,0,800,250);
+      // Axes
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(60,200); ctx.lineTo(60,40); ctx.lineTo(780,40); ctx.stroke();
+      ctx.lineWidth = 1;
+      // Plot line
+      ctx.strokeStyle = "#2980b9";
+      ctx.beginPath();
+      for (let i=0; i<elbowData.length; ++i) {
+        let x = 60 + (i)*(700/(elbowData.length-1));
+        let y = 200 - (elbowData[i].inertia-elbowData[elbowData.length-1].inertia)/(elbowData[0].inertia-elbowData[elbowData.length-1].inertia+1e-6)*160;
+        if (i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      // Plot points
+      for (let i=0; i<elbowData.length; ++i) {
+        let x = 60 + (i)*(700/(elbowData.length-1));
+        let y = 200 - (elbowData[i].inertia-elbowData[elbowData.length-1].inertia)/(elbowData[0].inertia-elbowData[elbowData.length-1].inertia+1e-6)*160;
+        ctx.beginPath();
+        ctx.arc(x, y, (i+1)==selectedIdx ? 12 : 8, 0, 2*Math.PI);
+        ctx.fillStyle = (i+1)==selectedIdx ? "#e74c3c" : "#bbb";
+        ctx.globalAlpha = (i+1)==selectedIdx ? 1.0 : 0.5;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = (i+1)==selectedIdx ? 3 : 1;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        // Label
+        ctx.fillStyle = (i+1)==selectedIdx ? "#222" : "#888";
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(i+1, x, y-18);
+      }
+      // Y axis label
+      ctx.save();
+      ctx.translate(30, 120);
+      ctx.rotate(-Math.PI/2);
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "#333";
+      ctx.fillText("Inertia", 0, 0);
+      ctx.restore();
+      // X axis label
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "#333";
+      ctx.textAlign = "center";
+      ctx.fillText("Number of Clusters (k)", 400, 230);
+    }
+    // --- Initial Draw ---
+    const clusterCanvas = document.getElementById('clusterCanvas');
+    const elbowCanvas = document.getElementById('elbowCanvas');
+    const clusterCtx = clusterCanvas.getContext('2d');
+    const elbowCtx = elbowCanvas.getContext('2d');
+    function render(selectedK, highlightIdx=null) {
+      let idx = selectedK-1;
+      drawClusters(clusterCtx, points, elbowData[idx].centroids, elbowData[idx].clusters, highlightIdx);
+      drawElbow(elbowCtx, elbowData.slice(0, selectedK), selectedK);
+    }
+    render(selectedK);
+  // Removed controls for user input
+    // --- Interactivity ---
+    elbowCanvas.addEventListener('click', function(e) {
+      const rect = elbowCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      for (let i=0; i<selectedK; ++i) {
+        let px = 60 + (i)*(700/(selectedK-1));
+        let py = 200 - (elbowData[i].inertia-elbowData[selectedK-1].inertia)/(elbowData[0].inertia-elbowData[selectedK-1].inertia+1e-6)*160;
+        if ((x-px)**2 + (y-py)**2 < 14*14) {
+          selectedK = i+1;
+          render(selectedK, i);
+          break;
+        }
+      }
+    });
+    // Highlight cluster on elbow plot hover
+    elbowCanvas.addEventListener('mousemove', function(e) {
+      const rect = elbowCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      let found = null;
+      for (let i=0; i<elbowData.length; ++i) {
+        let px = 60 + (i)*(700/(elbowData.length-1));
+        let py = 200 - (elbowData[i].inertia-elbowData[elbowData.length-1].inertia)/(elbowData[0].inertia-elbowData[elbowData.length-1].inertia+1e-6)*160;
+        if ((x-px)**2 + (y-py)**2 < 14*14) {
+          found = i+1;
+          break;
+        }
+      }
+      render(selectedK, found ? found-1 : null);
+    });
+    elbowCanvas.addEventListener('mouseleave', function() {
+      render(selectedK);
+    });
+  </script>
+</html>
